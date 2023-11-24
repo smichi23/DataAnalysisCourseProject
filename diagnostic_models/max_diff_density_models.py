@@ -1,11 +1,10 @@
 import numpy as np
-import scipy
-
-from diagnostic_models.diagnostic_model import DiagnosticModel
 from scipy.optimize import curve_fit, basinhopping
 
+from diagnostic_models.diagnostic_model import DiagnosticModel
 
-class PreDefinedThresholdMaximumDensity(DiagnosticModel):
+
+class PreDefinedThresholdMaximumDiffDensity(DiagnosticModel):
     def __init__(self, name, threshold, threshold_domain):
         super().__init__(name, threshold_domain)
         self.threshold = threshold
@@ -15,50 +14,21 @@ class PreDefinedThresholdMaximumDensity(DiagnosticModel):
 
     def predict(self, data, final_threshold=None):
         max_intensities = data.max(axis=(-2, -1))
-        classes = np.ma.masked_greater(max_intensities, self.threshold)
+        min_intensities = data.min(axis=(-2, -1))
+        diff_intensities = max_intensities - min_intensities
+        classes = np.ma.masked_greater(diff_intensities, self.threshold)
 
         return classes.mask.astype(np.int32)
 
 
-class ThresholdBasedOnGaussianDistributionMaximumDensity(DiagnosticModel):
-    def __init__(self, name, threshold_domain):
-        super().__init__(name, threshold_domain)
-
-    def fit(self, data, labels):
-        pass
-
-    def predict(self, data, final_threshold=None):
-        pass
-
-
-class SigmoidLeastSquareFitMaximumDensity(DiagnosticModel):
-    def __init__(self, name, theshold_domain, initial_values):
-        super().__init__(name, theshold_domain)
-        self.parameters = initial_values
-
-    @staticmethod
-    def chi_square_loss_function(data, labels, parameters):
-        def sigmoid(k, x, x0):
-            return 1 / (1 + np.exp(-k * (x - x0)))
-
-        chi_square = np.sum((labels - sigmoid(parameters[0], data, parameters[1])) ** 2)
-        return chi_square
-
-    def fit(self, data, labels):
-        pass
-
-    def predict(self, data, final_threshold=None):
-        pass
-
-
-class SigmoidScipyCurveFitMaximumDensity(DiagnosticModel):
+class SigmoidScipyCurveFitMaximumDiffDensity(DiagnosticModel):
     def __init__(self, name, initial_values, threshold_domain):
         super().__init__(name, threshold_domain)
         self.parameters = initial_values
         self.threshold = None
 
     def fit(self, data, labels):
-        values = curve_fit(self.sigmoid, data.max(axis=(-2, -1)), labels, self.parameters)
+        values = curve_fit(self.sigmoid, (data.max(axis=(-2, -1)) - data.min(axis=(-2, -1))), labels, self.parameters)
         self.parameters = values[0]
 
         def optimize_prediction(threshold):
@@ -86,7 +56,7 @@ class SigmoidScipyCurveFitMaximumDensity(DiagnosticModel):
     def predict(self, data, final_threshold=None):
         if self.threshold is None:
             raise ValueError("The model has not been fitted yet.")
-        sigmoid_values = self.sigmoid(data.max(axis=(-2, -1)), *self.parameters)
+        sigmoid_values = self.sigmoid((data.max(axis=(-2, -1)) - data.min(axis=(-2, -1))), *self.parameters)
         if final_threshold is None:
             classes = np.greater(sigmoid_values, self.threshold)
         else:
