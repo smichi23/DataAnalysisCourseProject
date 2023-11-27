@@ -16,15 +16,19 @@ class PreDefinedThresholdMaximumDiffDensity(DiagnosticModel):
         max_intensities = data.max(axis=(-2, -1))
         min_intensities = data.min(axis=(-2, -1))
         diff_intensities = max_intensities - min_intensities
-        classes = np.ma.masked_greater(diff_intensities, self.threshold)
+        classes = np.greater(diff_intensities, self.threshold)
 
-        return classes.mask.astype(np.int32)
+        return classes
+
+    def reset(self):
+        pass
 
 
 class SigmoidScipyCurveFitMaximumDiffDensity(DiagnosticModel):
     def __init__(self, name, initial_values, threshold_domain):
         super().__init__(name, threshold_domain)
         self.parameters = initial_values
+        self.initial_values = initial_values
         self.threshold = None
 
     def fit(self, data, labels):
@@ -63,3 +67,7 @@ class SigmoidScipyCurveFitMaximumDiffDensity(DiagnosticModel):
             classes = np.greater(sigmoid_values, final_threshold)
 
         return classes
+
+    def reset(self):
+        self.threshold = None
+        self.parameters = self.initial_values

@@ -15,9 +15,12 @@ class PreDefinedThresholdMaximumDensity(DiagnosticModel):
 
     def predict(self, data, final_threshold=None):
         max_intensities = data.max(axis=(-2, -1))
-        classes = np.ma.masked_greater(max_intensities, self.threshold)
+        classes = np.greater(max_intensities, self.threshold)
 
-        return classes.mask.astype(np.int32)
+        return classes
+
+    def reset(self):
+        pass
 
 
 class ThresholdBasedOnGaussianDistributionMaximumDensity(DiagnosticModel):
@@ -54,6 +57,7 @@ class SigmoidLeastSquareFitMaximumDensity(DiagnosticModel):
 class SigmoidScipyCurveFitMaximumDensity(DiagnosticModel):
     def __init__(self, name, initial_values, threshold_domain):
         super().__init__(name, threshold_domain)
+        self.initial_values = initial_values
         self.parameters = initial_values
         self.threshold = None
 
@@ -93,3 +97,7 @@ class SigmoidScipyCurveFitMaximumDensity(DiagnosticModel):
             classes = np.greater(sigmoid_values, final_threshold)
 
         return classes
+
+    def reset(self):
+        self.threshold = None
+        self.parameters = self.initial_values

@@ -10,3 +10,6 @@ class DiagnosticModel:
     def predict(self, data, final_threshold=None):
         raise NotImplementedError
 
+    def reset(self):
+        raise NotImplementedError
+
