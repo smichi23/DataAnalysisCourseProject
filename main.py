@@ -2,7 +2,7 @@ import numpy as np
 from data_management_tools.data_readers import read_cancer_data, read_time_dependant_cancer_data, read_historical_cancer_data
 from data_management_tools.data_visualization import plot_histogram, show_image, show_images_via_slider
 from diagnostic_models.max_diff_density_models import PreDefinedThresholdMaximumDiffDensity, \
-    SigmoidScipyCurveFitMaximumDiffDensity
+    SigmoidScipyCurveFitMaximumDiffDensity, OptimalThresholdMaximumDiffDensity
 from diagnostic_models.maximum_density_models import PreDefinedThresholdMaximumDensity, \
     SigmoidScipyCurveFitMaximumDensity
 from model_evaluation.auc_curve_evaluation import AUCComparisonOfModelPerformances
@@ -62,8 +62,12 @@ if __name__ == '__main__':
                                                                   [1, np.median(all_data[0].max((-2,-1)) - all_data[0].min((-2,-1))),1,0],
                                                          [0, 1])
     max_diff_model_scipy.fit(all_data[0], all_data[1])
-    print(all_data[0].shape)
-    evaluator = TestPerformances([max_model, max_diff_model, max_model_scipy, max_diff_model_scipy], all_data[0], all_data[1])
+    optimal_thresh_on_diff = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max Diff', None)
+    optimal_thresh_on_diff.fit(all_data[0], all_data[1])
+    optimal_thresh_on_max = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max', None)
+    optimal_thresh_on_max.fit(all_data[0], all_data[1])
+    evaluator = TestPerformances([max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
+                                  optimal_thresh_on_max], all_data[0], all_data[1])
     accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max')
     print(f'Accuracy: {accuracy}')
     accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max Diff')
@@ -72,26 +76,35 @@ if __name__ == '__main__':
     print(f'Accuracy: {accuracy}')
     accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max Diff')
     print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max Diff')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max')
+    print(f'Accuracy: {accuracy}')
+
     p_value_evaluator = PValueComparisonOfModelPerformancesDistribution([max_model,
                                                                          max_diff_model,
                                                                          max_model_scipy,
-                                                                         max_diff_model_scipy],
+                                                                         max_diff_model_scipy, optimal_thresh_on_diff,
+                                                                         optimal_thresh_on_max],
                                                                         all_data[0], all_data[1])
     p_value_evaluator.evaluate_for_different_training_and_prediction_set(20)
     p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max')
     p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max Diff')
     p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max')
     p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max Diff')
+    p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max Diff')
+    p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max')
 
 
     auc_comparison = AUCComparisonOfModelPerformances([max_model,
                                                        max_diff_model,
                                                        max_model_scipy,
-                                                       max_diff_model_scipy], all_data[0], all_data[1])
+                                                       max_diff_model_scipy, optimal_thresh_on_diff, optimal_thresh_on_max], all_data[0], all_data[1])
     auc_comparison.evaluate_for_different_training_and_prediction_set(5, 100)
     auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max')
     auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max Diff')
     auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max')
     auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max Diff')
-
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max Diff')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max')
     auc_comparison.plot_auc_on_all_models_on_multiple_splits()
