@@ -24,7 +24,7 @@ class PValueComparisonOfModelPerformancesDistribution:
         model.reset()
         model.fit(training_set[0], training_set[1])
         predictions = model.predict(testing_set[0])
-        accuracy = np.sum(predictions == testing_set[1]) / len(predictions)
+        accuracy = np.equal(predictions, testing_set[1]).sum() / len(predictions)
         if model.name not in self.accuracies.keys():
             self.accuracies[model.name] = []
         self.accuracies[model.name].append(accuracy)

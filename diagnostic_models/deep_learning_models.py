@@ -1,11 +1,12 @@
-import time
+from copy import deepcopy
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 class DataWrapper(Dataset):
@@ -22,8 +23,11 @@ class DataWrapper(Dataset):
     """
 
     def __init__(self, X, y):
-        self.features = X
-        self.labels = y
+        tmp_features = []
+        for features in X:
+            tmp_features.append(features - features.min()/ (features.max() - features.min()))
+        self.labels = torch.as_tensor(y, dtype=torch.float32)
+        self.features = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1)
 
     def __len__(self):
         return len(self.features)
@@ -39,6 +43,10 @@ class CNNClassifier2D(nn.Module):
         self.hp = hp
         self.set_delault_hp()
         self.build_model()
+        self.initial_weights = deepcopy(self.state_dict())
+        self.trainer = None
+        self.name = 'CNNClassifier2D'
+        self.threshold_domain = [0, 1]
 
     def summary(self):
         model_parameters = filter(lambda p: p.requires_grad, self.parameters())
@@ -62,6 +70,8 @@ class CNNClassifier2D(nn.Module):
 
     def build_model(self):
         d_rate = self.hp['d_rate']
+        self.add_module(f'conv_initial',
+                        nn.Conv2d(self.hp["channels"], self.hp["channels"], self.hp['initial_kernel_size'], 1))
         for layers in range(self.hp["down_sampling_nb_layers"]):
             self.add_module(f'conv{layers}', nn.Conv2d(self.hp["channels"] * (2 ** layers),
                                                        self.hp["channels"] * (2 ** (layers + 1)),
@@ -71,10 +81,12 @@ class CNNClassifier2D(nn.Module):
             self.add_module(f'conv{layers}_dropout', nn.Dropout(d_rate))
             self.add_module(f'conv{layers}_pooling', nn.MaxPool2d(2))
 
-        self.add_module(f'final_layer_lin', nn.Linear(self.hp["channels"] * (2 ** (self.hp["down_sampling_nb_layers"])), 1))
+        self.add_module(f'final_layer_lin',
+                        nn.Linear(self.hp["channels"] * (2 ** (self.hp["down_sampling_nb_layers"])), 1))
         self.add_module(f'final_layer', self.hp["final_activation_func"])
 
     def forward(self, x):
+        x = self.__getattr__(f'conv_initial')(x)
         for layers in range(self.hp["down_sampling_nb_layers"]):
             x = self.__getattr__(f'conv{layers}')(x)
             x = self.__getattr__(f'conv{layers}_activation')(x)
@@ -86,9 +98,29 @@ class CNNClassifier2D(nn.Module):
         return x.flatten()
 
     def predict(self, x, threshold=0.5):
-        output = self.forward(x)
-        _, predicted = torch.greater(output.data, threshold)
+        if type(x) != torch.Tensor:
+            tmp_features = []
+            for features in x:
+                tmp_features.append(features - features.min() / (features.max() - features.min()))
+            data = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1)
+        else:
+            data = x
+        output = self.forward(data)
+        predicted = torch.greater(output.data, threshold)
         return predicted
+
+    def reset(self):
+        self.load_state_dict(self.initial_weights)
+
+    def fit(self, data, labels, batch_size=20, shuffle=True):
+        assert self.trainer is not None, 'Trainer not set'
+        self.reset()
+        ml_data_wrapped = DataWrapper(data, labels)
+        data_loader = DataLoader(ml_data_wrapped, batch_size=batch_size, shuffle=shuffle)
+        self.trainer.train(data_loader, data_loader)
+
+    def set_trainer(self, trainer):
+        self.trainer = trainer
 
 
 class Trainer:
@@ -96,11 +128,16 @@ class Trainer:
         self.model = model
         self.data_augmentation = data_augmentation
         self.hp = hp
+        self.training_loss = []
+        self.validation_loss = []
+        self.metrics_training = {}
+        self.metrics_validation = {}
         self.set_delault_hp()
 
     def set_delault_hp(self):
         default_hp = {'loss': nn.CrossEntropyLoss(), 'optimizer': Adam(self.model.parameters(), lr=0.000001),
-                      'metrics': [self.accuracy], 'epochs': 100}
+                      'metrics': [self.accuracy], 'epochs': 100, "show_plots_every_training": False,
+                      "early_stoping_condition": None, "lr_scheduler": None}
         for hpKey, hpValue in default_hp.items():
             if hpKey not in self.hp.keys():
                 self.hp[hpKey] = hpValue
@@ -108,9 +145,31 @@ class Trainer:
     def train(self, train_loader, val_loader):
         for epoch in range(self.hp['epochs']):
             train_loss = self._train_on_epoch(train_loader)
-            print(f'Epoch: {epoch}, Train loss: {train_loss}')
+            self.training_loss.append(train_loss)
+            for metric in self.hp['metrics']:
+                if metric.__name__ not in self.metrics_training.keys():
+                    self.metrics_training[metric.__name__] = []
+                self.metrics_training[metric.__name__].append(np.asarray(metric(train_loader)).mean())
             val_loss = self._validate(val_loader)
-            print(f'Epoch: {epoch}, Validation loss: {val_loss}')
+            self.validation_loss.append(val_loss)
+            for metric in self.hp['metrics']:
+                if metric.__name__ not in self.metrics_validation.keys():
+                    self.metrics_validation[metric.__name__] = []
+                self.metrics_validation[metric.__name__].append(np.asarray(metric(val_loader)).mean())
+
+            if self.hp["lr_scheduler"] is not None:
+                self.hp["lr_scheduler"].step()
+            if self.hp["early_stoping_condition"] is not None:
+                if self.hp["early_stoping_condition"][1] == 'metric':
+                    if self.hp["early_stoping_condition"][0](
+                            self.metrics_validation[self.hp["early_stoping_condition"][2]]):
+                        break
+
+                if self.hp["early_stoping_condition"][1] == 'loss':
+                    if self.hp["early_stoping_condition"][0](self.validation_loss):
+                        break
+        if self.hp["show_plots_every_training"]:
+            self.plot_training_and_validation_loss_and_metrics()
 
     def _train_on_epoch(self, train_loader):
         self.model.train()
@@ -131,15 +190,26 @@ class Trainer:
 
         return loss.item()
 
-    def predict(self, x, threshold=0.5):
-        output = self.forward(x)
-        _, predicted = torch.greater(output.data, threshold)
-        return predicted
+    def accuracy(self, data_loader):
+        score = []
+        for features, labels in data_loader:
+            predicted = self.model.predict(features)
+            correct = np.equal(predicted, labels).sum()
+            score.append(correct / len(labels))
+        return score
 
-    def accuracy(self, output, target):
-        _, predicted = torch.max(output.data, 1)
-        correct = (predicted == target).sum().item()
-        return correct / len(target)
+    def plot_training_and_validation_loss_and_metrics(self):
+        fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+        epochs = list(range(len(self.training_loss)))
+
+        ax[0].plot(epochs, self.training_loss, label='Training loss')
+        ax[0].plot(epochs, self.validation_loss, label='Validation loss')
+        ax[0].legend()
+        for metric in self.hp['metrics']:
+            ax[1].plot(epochs, self.metrics_training[metric.__name__], label=f'Training {metric.__name__}')
+            ax[1].plot(epochs, self.metrics_validation[metric.__name__], label=f'Validation {metric.__name__}')
+        ax[1].legend()
+        plt.show()
 
     def get_model(self):
         return self.model

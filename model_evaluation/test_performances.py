@@ -21,7 +21,7 @@ class TestPerformances:
     def evaluate_single_model(self, model_name):
         model = self._get_model_by_name(model_name)
         predictions = model.predict(self.test_data)
-        accuracy = np.sum(predictions == self.labels) / len(predictions)
+        accuracy = np.equal(predictions, self.labels).sum() / len(predictions)
         self.accuracies[model_name] = accuracy
 
         return accuracy

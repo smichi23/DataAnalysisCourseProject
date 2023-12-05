@@ -1,4 +1,5 @@
 import numpy as np
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 
 from data_management_tools.data_readers import read_cancer_data, read_time_dependant_cancer_data, \
@@ -57,73 +58,91 @@ if __name__ == '__main__':
     # histo_as_array = np.concatenate((histo[1][1:].reshape(-1, 1), histo[0].reshape(-1, 1)), axis=1)
     # plot_histogram(histo_as_array, 'Max-Min Density', 'Frequency', normalized=True)
 
-    # all_data = read_cancer_data('./data/cancer_data.txt')
-    # max_model = PreDefinedThresholdMaximumDensity('Predefined Threshold on Max', 6, None)
-    # max_diff_model = PreDefinedThresholdMaximumDiffDensity('Predefined Threshold on Max Diff', 5, None)
-    # max_model_scipy = SigmoidScipyCurveFitMaximumDensity('Sigmoid Curve Fit on Max',
-    #                                                      [1, np.median(all_data[0].max((-2,-1))),1,0],
-    #                                                      [0, 1])
-    # max_model_scipy.fit(all_data[0], all_data[1])
-    # max_diff_model_scipy = SigmoidScipyCurveFitMaximumDiffDensity('Sigmoid Curve Fit on Max Diff',
-    #                                                               [1, np.median(all_data[0].max((-2,-1)) - all_data[0].min((-2,-1))),1,0],
-    #                                                      [0, 1])
-    # max_diff_model_scipy.fit(all_data[0], all_data[1])
-    # optimal_thresh_on_diff = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max Diff', None)
-    # optimal_thresh_on_diff.fit(all_data[0], all_data[1])
-    # optimal_thresh_on_max = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max', None)
-    # optimal_thresh_on_max.fit(all_data[0], all_data[1])
-    # evaluator = TestPerformances([max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
-    #                               optimal_thresh_on_max], all_data[0], all_data[1])
-    # accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max')
-    # print(f'Accuracy: {accuracy}')
-    #
-    # p_value_evaluator = PValueComparisonOfModelPerformancesDistribution([max_model,
-    #                                                                      max_diff_model,
-    #                                                                      max_model_scipy,
-    #                                                                      max_diff_model_scipy, optimal_thresh_on_diff,
-    #                                                                      optimal_thresh_on_max],
-    #                                                                     all_data[0], all_data[1])
-    # p_value_evaluator.evaluate_for_different_training_and_prediction_set(20)
-    # p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max')
-    # p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max')
-    # p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max')
-    #
-    #
-    # auc_comparison = AUCComparisonOfModelPerformances([max_model,
-    #                                                    max_diff_model,
-    #                                                    max_model_scipy,
-    #                                                    max_diff_model_scipy, optimal_thresh_on_diff, optimal_thresh_on_max], all_data[0], all_data[1])
-    # auc_comparison.evaluate_for_different_training_and_prediction_set(5, 100)
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max')
-    # auc_comparison.plot_auc_on_all_models_on_multiple_splits()
     all_data = read_cancer_data('./data/cancer_data.txt')
-    all_images = torch.as_tensor(all_data[0], dtype=torch.float32).unsqueeze(1)
-    labels = torch.as_tensor(all_data[1], dtype=torch.float32)
-
-    data = DataWrapper(all_images, labels)
-    data_loader = DataLoader(data, batch_size=32, shuffle=True)
-    model = CNNClassifier2D((30, 30), **{"activation_func": nn.ReLU(), 'padding': '',
+    max_model = PreDefinedThresholdMaximumDensity('Predefined Threshold on Max', 6, None)
+    max_diff_model = PreDefinedThresholdMaximumDiffDensity('Predefined Threshold on Max Diff', 5, None)
+    max_model_scipy = SigmoidScipyCurveFitMaximumDensity('Sigmoid Curve Fit on Max',
+                                                         [1, np.median(all_data[0].max((-2,-1))),1,0],
+                                                         [0, 1])
+    max_model_scipy.fit(all_data[0], all_data[1])
+    max_diff_model_scipy = SigmoidScipyCurveFitMaximumDiffDensity('Sigmoid Curve Fit on Max Diff',
+                                                                  [1, np.median(all_data[0].max((-2,-1)) - all_data[0].min((-2,-1))),1,0],
+                                                         [0, 1])
+    max_diff_model_scipy.fit(all_data[0], all_data[1])
+    optimal_thresh_on_diff = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max Diff', None)
+    optimal_thresh_on_diff.fit(all_data[0], all_data[1])
+    optimal_thresh_on_max = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max', None)
+    optimal_thresh_on_max.fit(all_data[0], all_data[1])
+    torch.manual_seed(0)
+    deep_model = CNNClassifier2D((30, 30), **{"activation_func": nn.ReLU(), 'padding': '',
                                             'kernel_initializer': 'glorot_normal', 'd_rate': 0.2,
-                                            'initial_kernel_size': (4, 4), 'final_activation_func': nn.Sigmoid(),
-                                            'kernel_size': (4, 4), "channels": 1,
+                                            'initial_kernel_size': (2, 2), 'final_activation_func': nn.Sigmoid(),
+                                            'kernel_size': (3, 3), "channels": 1,
                                             "down_sampling_nb_layers": 3})
-    trainer = Trainer(model)
-    trainer.train(data_loader, data_loader)
+    def early_stoping_condition(accuracy_history):
+        if len(accuracy_history) < 200:
+            return False
+        elif np.asarray(accuracy_history)[-50:].mean() < 0.7:
+            return False
+        elif np.asarray(accuracy_history)[-20:].std() < 0.001:
+            return True
+        else:
+            return False
+
+    optimizer = torch.optim.Adam(deep_model.parameters(), lr=0.005)
+    trainer = Trainer(deep_model, **{'loss': nn.BCELoss(), 'optimizer': optimizer,
+                                     'epochs': 1000, "show_plots_every_training": True,
+                                     "early_stoping_condition": (early_stoping_condition, 'metric', 'accuracy'),
+                                     "lr_scheduler": lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.0001,
+                                                                           total_iters=1000)})
+    deep_model.set_trainer(trainer)
+    deep_model.fit(all_data[0], all_data[1])
+    evaluator = TestPerformances([max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
+                                  optimal_thresh_on_max, deep_model], all_data[0], all_data[1])
+
+    accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max Diff')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max Diff')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max Diff')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max')
+    print(f'Accuracy: {accuracy}')
+    accuracy = evaluator.evaluate_single_model('CNNClassifier2D')
+    print(f'Accuracy: {accuracy}')
+    p_value_evaluator = PValueComparisonOfModelPerformancesDistribution([max_model,
+                                                                         max_diff_model,
+                                                                         max_model_scipy,
+                                                                         max_diff_model_scipy, optimal_thresh_on_diff,
+                                                                         optimal_thresh_on_max, deep_model],
+                                                                        all_data[0], all_data[1])
+    p_value_evaluator.evaluate_for_different_training_and_prediction_set(20)
+    p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max')
+    p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max Diff')
+    p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max')
+    p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max Diff')
+    p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max Diff')
+    p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max')
+    p_value_evaluator.plot_statistics_for_single_model('CNNClassifier2D')
+
+
+    auc_comparison = AUCComparisonOfModelPerformances([max_model,
+                                                       max_diff_model,
+                                                       max_model_scipy,
+                                                       max_diff_model_scipy, optimal_thresh_on_diff, optimal_thresh_on_max,
+                                                       deep_model], all_data[0], all_data[1])
+    auc_comparison.evaluate_for_different_training_and_prediction_set(5, 100)
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max Diff')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max Diff')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max Diff')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max')
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('CNNClassifier2D')
+    auc_comparison.plot_auc_on_all_models_on_multiple_splits()
+
+
