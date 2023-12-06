@@ -84,16 +84,16 @@ if __name__ == '__main__':
             return False
         elif np.asarray(accuracy_history)[-50:].mean() < 0.7:
             return False
-        elif np.asarray(accuracy_history)[-20:].std() < 0.001:
+        elif np.equal(np.asarray(accuracy_history)[-20:], accuracy_history[-1]).sum() > 15:
             return True
         else:
             return False
 
     optimizer = torch.optim.Adam(deep_model.parameters(), lr=0.005)
     trainer = Trainer(deep_model, **{'loss': nn.BCELoss(), 'optimizer': optimizer,
-                                     'epochs': 1000, "show_plots_every_training": True,
+                                     'epochs': 2000, "show_plots_every_training": True,
                                      "early_stoping_condition": (early_stoping_condition, 'metric', 'accuracy'),
-                                     "lr_scheduler": lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.0001,
+                                     "lr_scheduler": lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.1,
                                                                            total_iters=1000)})
     deep_model.set_trainer(trainer)
     deep_model.fit(all_data[0], all_data[1])
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                                                                          max_diff_model_scipy, optimal_thresh_on_diff,
                                                                          optimal_thresh_on_max, deep_model],
                                                                         all_data[0], all_data[1])
-    p_value_evaluator.evaluate_for_different_training_and_prediction_set(20)
+    p_value_evaluator.evaluate_for_different_training_and_prediction_set(10)
     p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max')
     p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max Diff')
     p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max')

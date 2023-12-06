@@ -133,6 +133,9 @@ class Trainer:
         self.metrics_training = {}
         self.metrics_validation = {}
         self.set_delault_hp()
+        self.initial_lr = self.hp['optimizer'].param_groups[0]['lr']
+        if self.hp["lr_scheduler"] is not None:
+            self.initial_scheduler_state = self.hp["lr_scheduler"].state_dict()
 
     def set_delault_hp(self):
         default_hp = {'loss': nn.CrossEntropyLoss(), 'optimizer': Adam(self.model.parameters(), lr=0.000001),
@@ -143,6 +146,7 @@ class Trainer:
                 self.hp[hpKey] = hpValue
 
     def train(self, train_loader, val_loader):
+        self.reset()
         for epoch in range(self.hp['epochs']):
             train_loss = self._train_on_epoch(train_loader)
             self.training_loss.append(train_loss)
@@ -213,3 +217,13 @@ class Trainer:
 
     def get_model(self):
         return self.model
+
+    def reset(self):
+        self.training_loss = []
+        self.validation_loss = []
+        self.metrics_training = {}
+        self.metrics_validation = {}
+        self.model.load_state_dict(self.model.initial_weights)
+        if self.hp["lr_scheduler"] is not None:
+            self.hp["lr_scheduler"].load_state_dict(self.initial_scheduler_state)
+        self.hp['optimizer'].param_groups[0]['lr'] = self.initial_lr
