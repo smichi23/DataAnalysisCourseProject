@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -22,18 +23,22 @@ class DataWrapper(Dataset):
         Labels tensor.
     """
 
-    def __init__(self, X, y):
+    def __init__(self, X, y, transforms=None, device='cpu'):
         tmp_features = []
         for features in X:
             tmp_features.append(features - features.min()/ (features.max() - features.min()))
-        self.labels = torch.as_tensor(y, dtype=torch.float32)
-        self.features = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1)
+        self.labels = torch.as_tensor(y, dtype=torch.float32).data.to(device)
+        self.features = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1).data.to(device)
+        self.transforms = transforms
 
     def __len__(self):
         return len(self.features)
 
     def __getitem__(self, idx):
-        return self.features[idx], self.labels[idx]
+        if self.transforms is not None:
+            return self.transforms(self.features[idx]), self.labels[idx]
+        else:
+            return self.features[idx], self.labels[idx]
 
 
 class CNNClassifier2D(nn.Module):
@@ -63,7 +68,7 @@ class CNNClassifier2D(nn.Module):
                       'kernel_initializer': 'glorot_normal', 'd_rate': 0.2,
                       'initial_kernel_size': (4, 4), 'final_activation_func': nn.Sigmoid(),
                       'kernel_size': (3, 3), "channels": 1,
-                      "down_sampling_nb_layers": 4}
+                      "down_sampling_nb_layers": 4, "transform": None, "device": "cpu"}
         for hpKey, hpValue in default_hp.items():
             if hpKey not in self.hp.keys():
                 self.hp[hpKey] = hpValue
@@ -97,17 +102,20 @@ class CNNClassifier2D(nn.Module):
         x = self.__getattr__(f'final_layer')(x)
         return x.flatten()
 
-    def predict(self, x, threshold=0.5):
+    def predict(self, x, threshold=0.5, training=False):
         if type(x) != torch.Tensor:
             tmp_features = []
             for features in x:
                 tmp_features.append(features - features.min() / (features.max() - features.min()))
-            data = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1)
+            data = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1).to(self.hp["device"])
         else:
-            data = x
+            data = x.to(self.hp["device"])
         output = self.forward(data)
         predicted = torch.greater(output.data, threshold)
-        return predicted
+        if training:
+            return predicted
+        else:
+            return predicted.cpu()
 
     def reset(self):
         self.load_state_dict(self.initial_weights)
@@ -115,7 +123,7 @@ class CNNClassifier2D(nn.Module):
     def fit(self, data, labels, batch_size=20, shuffle=True):
         assert self.trainer is not None, 'Trainer not set'
         self.reset()
-        ml_data_wrapped = DataWrapper(data, labels)
+        ml_data_wrapped = DataWrapper(data, labels, transforms=self.hp["transform"], device=self.hp["device"])
         data_loader = DataLoader(ml_data_wrapped, batch_size=batch_size, shuffle=shuffle)
         self.trainer.train(data_loader, data_loader)
 
@@ -124,9 +132,8 @@ class CNNClassifier2D(nn.Module):
 
 
 class Trainer:
-    def __init__(self, model, data_augmentation=False, **hp):
+    def __init__(self, model, **hp):
         self.model = model
-        self.data_augmentation = data_augmentation
         self.hp = hp
         self.training_loss = []
         self.validation_loss = []
@@ -147,19 +154,19 @@ class Trainer:
 
     def train(self, train_loader, val_loader):
         self.reset()
-        for epoch in range(self.hp['epochs']):
+        for epoch in tqdm(range(self.hp['epochs'])):
             train_loss = self._train_on_epoch(train_loader)
             self.training_loss.append(train_loss)
             for metric in self.hp['metrics']:
                 if metric.__name__ not in self.metrics_training.keys():
                     self.metrics_training[metric.__name__] = []
-                self.metrics_training[metric.__name__].append(np.asarray(metric(train_loader)).mean())
+                self.metrics_training[metric.__name__].append(torch.mean(metric(train_loader)))
             val_loss = self._validate(val_loader)
             self.validation_loss.append(val_loss)
             for metric in self.hp['metrics']:
                 if metric.__name__ not in self.metrics_validation.keys():
                     self.metrics_validation[metric.__name__] = []
-                self.metrics_validation[metric.__name__].append(np.asarray(metric(val_loader)).mean())
+                self.metrics_validation[metric.__name__].append(torch.mean(metric(val_loader)))
 
             if self.hp["lr_scheduler"] is not None:
                 self.hp["lr_scheduler"].step()
@@ -197,10 +204,10 @@ class Trainer:
     def accuracy(self, data_loader):
         score = []
         for features, labels in data_loader:
-            predicted = self.model.predict(features)
-            correct = np.equal(predicted, labels).sum()
+            predicted = self.model.predict(features, training=True)
+            correct = torch.eq(predicted, labels).sum()
             score.append(correct / len(labels))
-        return score
+        return torch.as_tensor(score, dtype=torch.float32)
 
     def plot_training_and_validation_loss_and_metrics(self):
         fig, ax = plt.subplots(1, 2, figsize=(15, 5))
