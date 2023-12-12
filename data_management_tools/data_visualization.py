@@ -3,12 +3,22 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
 plt.rcParams.update({'font.size': 18})
-def plot_histogram(data, xlabel, ylabel, normalized=False):
+
+
+def plot_histogram(data, data_label, xlabel, ylabel, normalized=False, add_vline=None):
     plt.figure(dpi=100, figsize=(10, 6))
+    mean = (data[:, 0] * data[:, 1]).sum() / data[:, 1].sum()
+    std = np.sqrt(((data[:, 0] - mean) ** 2 * data[:, 1] / data[:, 1].sum()).sum())
     if normalized:
-        plt.plot(data[:, 0], data[:, 1] / np.sum(data[:, 1] * (data[1, 0] - data[0, 0])))
+        plt.bar(data[:, 0], data[:, 1] / ((data[:, 0][1] - data[:, 0][0]) * data[:, 1].sum()),
+                width=data[:, 0][1] - data[:, 0][0],
+                label=data_label + "\n" + r"$\bar{x}$" + f"$= {mean:.2f}$" + f" and $s = {std:.2f}$")
     else:
-        plt.plot(data[:, 0], data[:, 1])
+        plt.bar(data[:, 0], data[:, 1], width=data[:, 0][1] - data[:, 0][0],
+                label=data_label + "\n" + r"$\bar{x}$" + f"$= {mean:.2f}$" + f" and $s = {std:.2f}$")
+    if add_vline is not None:
+        plt.axvline(x=add_vline[0], color='black', linestyle='--', label=add_vline[1])
+    plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.show()
@@ -18,8 +28,9 @@ def plot_multiple_histogram(datas, data_labels, xlabel, ylabel, bins, normalized
     plt.figure(dpi=100, figsize=(10, 6))
     it = 0
     for data in datas:
-        plt.hist(data, bins=bins, density=normalized, label=data_labels[it], alpha=0.5, histtype='stepfilled',
-                 ec='black')
+        plt.hist(data, bins=bins, density=normalized, label=data_labels[it] + "\n" + r"$\bar{x}$"
+                                                            + f"$= {data.mean():.2f}$" + f" and $s = {data.std():.2f}$",
+                 alpha=0.5, histtype='stepfilled', ec='black')
         it += 1
     if add_vline is not None:
         plt.axvline(x=add_vline[0], color='black', linestyle='--', label=add_vline[1])

@@ -34,8 +34,22 @@ if __name__ == '__main__':
     #                        0, data2[list(patients_with_cancer)].max(), 0)
     histo_dict = read_historical_cancer_data('./data/historical_cancer_data.txt', 0.2)
     for key in histo_dict.keys():
+        print(key)
         for histo in histo_dict[key]:
-            plot_histogram(histo, f'{key}', 'Intensity [-]')
+            if key == "maxTissueDensity\n":
+                label = 'Max Intensity [-]'
+                vline = [6, "Previous work positive\ndetection threshold"]
+            elif key == "maxDensityDifference\n":
+                label = 'Max Intensity Difference [-]'
+                vline = [5, "Previous work positive\ndetection threshold"]
+            if histo[:, 1].sum() == 2000:
+                title = "2000-patient cohort"
+            elif histo[:, 1].sum() == 10000:
+                title = "10000-patient cohort"
+            else:
+                title = ""
+            plot_histogram(histo, title, label, 'Frequency [-]',
+                           add_vline=vline, normalized=True)
 
     # Histogram of max densities
     patients_without_cancer = np.where(labels == 0)[0]
@@ -50,9 +64,10 @@ if __name__ == '__main__':
     max_minus_min_densities_without = data[list(patients_without_cancer)].max(axis=(1, 2)) \
                                       - data[list(patients_without_cancer)].min(axis=(1, 2))
     max_minus_min_densities_with = data[list(patients_with_cancer)].max(axis=(1, 2)) \
-                                     - data[list(patients_with_cancer)].min(axis=(1, 2))
-    plot_multiple_histogram([max_minus_min_densities_without, max_minus_min_densities_with], ['Without Cancer', 'With Cancer'],
-                            'Max Intensity Difference[-]', 'Frequency [-]', 25,
+                                   - data[list(patients_with_cancer)].min(axis=(1, 2))
+    plot_multiple_histogram([max_minus_min_densities_without, max_minus_min_densities_with],
+                            ['Without Cancer', 'With Cancer'],
+                            'Max Intensity Difference [-]', 'Frequency [-]', 25,
                             add_vline=[5, "Previous work positive\ndetection threshold"], normalized=True)
 
     # all_data = read_cancer_data('./data/cancer_data.txt')
