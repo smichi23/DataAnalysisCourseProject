@@ -1,4 +1,6 @@
 from typing import List
+
+import scipy
 from sklearn.model_selection import KFold
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,8 +38,43 @@ class PValueComparisonOfModelPerformancesDistribution:
         plt.ylabel("Frequency")
         plt.show()
 
-    def plot_statistics_between_two_models(self, model1_name, model2_name):
-        pass
+    def compute_all_t_tests_and_produce_latex_table(self):
 
-    def plot_statistics_between_all_models(self):
-        pass
+        latex_table = ""
+        header = "Model"
+        for model in self.models:
+            header += f" & {model.name}"
+            row = f"{model.name}"
+            for other_model in self.models:
+                if model.name == other_model.name:
+                    row += " & - & - "
+                else:
+                    t_test, p_value = self.compute_t_test(model.name, other_model.name)
+                    row += f"&{t_test:.2f} & {p_value:.4f}"
+            latex_table += row + "\\\\ \n"
+        print(header)
+        print(latex_table)
+
+    def compute_t_test(self, model1_name, model2_name):
+        assert model1_name != model2_name
+        model1_accuracies = np.array(self.accuracies[model1_name])
+        model2_accuracies = np.array(self.accuracies[model2_name])
+        t_test = scipy.stats.ttest_ind(model1_accuracies, model2_accuracies, equal_var=False)
+        return t_test.statistic, t_test.pvalue
+
+    def plot_statistics_between_all_models(self, bins):
+        plt.figure(dpi=100, figsize=(10, 6))
+        all_data = []
+        all_labels = []
+        for model in self.models:
+            data = accuracies_in_np = np.array(self.accuracies[model.name])
+            all_data.append(data)
+            label = model.name + " " + r"$\bar{x}$" + f"$= {accuracies_in_np.mean():.2f}$" + f" and $s = {accuracies_in_np.std():.2f}$"
+            all_labels.append(label)
+        plt.hist(all_data, bins=np.linspace(0, 1, bins), density=True, range=(0, 1),
+                 label=all_labels)
+        plt.legend()
+        plt.xlabel("Accuracy [-]")
+        plt.ylabel("Frequency [-]")
+        plt.show()
+        plt.style.use('default')

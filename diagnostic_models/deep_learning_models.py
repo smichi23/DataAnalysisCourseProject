@@ -1,3 +1,5 @@
+import datetime
+import os
 from copy import deepcopy
 
 from tqdm import tqdm
@@ -26,7 +28,7 @@ class DataWrapper(Dataset):
     def __init__(self, X, y, transforms=None, device='cpu'):
         tmp_features = []
         for features in X:
-            tmp_features.append(features - features.min()/ (features.max() - features.min()))
+            tmp_features.append(features - features.min() / (features.max() - features.min()))
         self.labels = torch.as_tensor(y, dtype=torch.float32).data.to(device)
         self.features = torch.as_tensor(np.asarray(tmp_features), dtype=torch.float32).unsqueeze(1).data.to(device)
         self.transforms = transforms
@@ -147,7 +149,7 @@ class Trainer:
     def set_delault_hp(self):
         default_hp = {'loss': nn.CrossEntropyLoss(), 'optimizer': Adam(self.model.parameters(), lr=0.000001),
                       'metrics': [self.accuracy], 'epochs': 100, "show_plots_every_training": False,
-                      "early_stoping_condition": None, "lr_scheduler": None}
+                      "early_stoping_condition": None, "lr_scheduler": None, "save_path": os.path.dirname(__file__)}
         for hpKey, hpValue in default_hp.items():
             if hpKey not in self.hp.keys():
                 self.hp[hpKey] = hpValue
@@ -210,17 +212,23 @@ class Trainer:
         return torch.as_tensor(score, dtype=torch.float32)
 
     def plot_training_and_validation_loss_and_metrics(self):
-        fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+        nb_metrics = len(self.hp['metrics'])
+        fig, ax = plt.subplots(nb_metrics + 1, 1, figsize=(7.5, 10), dpi=100)
         epochs = list(range(len(self.training_loss)))
 
         ax[0].plot(epochs, self.training_loss, label='Training loss')
         ax[0].plot(epochs, self.validation_loss, label='Validation loss')
-        ax[0].legend()
         for metric in self.hp['metrics']:
             ax[1].plot(epochs, self.metrics_training[metric.__name__], label=f'Training {metric.__name__}')
             ax[1].plot(epochs, self.metrics_validation[metric.__name__], label=f'Validation {metric.__name__}')
+            ax[1].set_ylabel(metric.__name__ + " [-]")
         ax[1].legend()
-        plt.show()
+        ax[0].legend()
+        ax[0].set_ylabel('Loss [-]')
+        ax[-1].set_xlabel('Epochs [-]')
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        plt.savefig(os.path.join(self.hp["save_path"], f"training_{current_time}.png"), bbox_inches='tight')
+        plt.close()
 
     def get_model(self):
         return self.model

@@ -19,11 +19,19 @@ class PreDefinedThresholdMaximumDensity(DiagnosticModel):
 
         return classes
 
+    def predict_on_max(self, max_intensities, final_threshold=None):
+        if final_threshold is None:
+            classes = np.greater(max_intensities, self.threshold)
+        else:
+            classes = np.greater(max_intensities, final_threshold)
+
+        return classes
+
     def reset(self):
         pass
 
 
-class OptimalThresholdMaximumDiffDensity(DiagnosticModel):
+class OptimalThresholdMaximumDensity(DiagnosticModel):
     def __init__(self, name, threshold_domain):
         super().__init__(name, threshold_domain)
         self.threshold = None
@@ -39,6 +47,14 @@ class OptimalThresholdMaximumDiffDensity(DiagnosticModel):
         if self.threshold is None and final_threshold is None:
             raise ValueError("The model has not been fitted yet.")
         max_intensities = data.max(axis=(-2, -1))
+        if final_threshold is None:
+            classes = np.greater(max_intensities, self.threshold)
+        else:
+            classes = np.greater(max_intensities, final_threshold)
+
+        return classes
+
+    def predict_on_max(self, max_intensities, final_threshold=None):
         if final_threshold is None:
             classes = np.greater(max_intensities, self.threshold)
         else:
@@ -72,6 +88,15 @@ class SigmoidScipyCurveFitMaximumDensity(DiagnosticModel):
         if self.threshold is None and final_threshold is None:
             raise ValueError("The model has not been fitted yet.")
         sigmoid_values = self.sigmoid(data.max(axis=(-2, -1)), *self.parameters)
+        if final_threshold is None:
+            classes = np.greater(sigmoid_values, self.threshold)
+        else:
+            classes = np.greater(sigmoid_values, final_threshold)
+
+        return classes
+
+    def predict_on_max(self, max_intensities, final_threshold=None):
+        sigmoid_values = self.sigmoid(max_intensities, *self.parameters)
         if final_threshold is None:
             classes = np.greater(sigmoid_values, self.threshold)
         else:

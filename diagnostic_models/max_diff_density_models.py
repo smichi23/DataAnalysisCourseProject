@@ -23,6 +23,10 @@ class PreDefinedThresholdMaximumDiffDensity(DiagnosticModel):
     def reset(self):
         pass
 
+    def predict_on_diff(self, diff_intensities, final_threshold=None):
+        classes = np.greater(diff_intensities, self.threshold)
+        return classes
+
 
 class OptimalThresholdMaximumDiffDensity(DiagnosticModel):
     def __init__(self, name, threshold_domain):
@@ -44,6 +48,14 @@ class OptimalThresholdMaximumDiffDensity(DiagnosticModel):
         max_intensities = data.max(axis=(-2, -1))
         min_intensities = data.min(axis=(-2, -1))
         diff_intensities = max_intensities - min_intensities
+        if final_threshold is None:
+            classes = np.greater(diff_intensities, self.threshold)
+        else:
+            classes = np.greater(diff_intensities, final_threshold)
+
+        return classes
+
+    def predict_on_diff(self, diff_intensities, final_threshold=None):
         if final_threshold is None:
             classes = np.greater(diff_intensities, self.threshold)
         else:
@@ -83,6 +95,15 @@ class SigmoidScipyCurveFitMaximumDiffDensity(DiagnosticModel):
         if self.threshold is None and final_threshold is None:
             raise ValueError("The model has not been fitted yet.")
         sigmoid_values = self.sigmoid((data.max(axis=(-2, -1)) - data.min(axis=(-2, -1))), *self.parameters)
+        if final_threshold is None:
+            classes = np.greater(sigmoid_values, self.threshold)
+        else:
+            classes = np.greater(sigmoid_values, final_threshold)
+
+        return classes
+
+    def predict_on_diff(self, diff_intensities, final_threshold=None):
+        sigmoid_values = self.sigmoid(diff_intensities, *self.parameters)
         if final_threshold is None:
             classes = np.greater(sigmoid_values, self.threshold)
         else:

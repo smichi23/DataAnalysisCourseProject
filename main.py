@@ -4,12 +4,12 @@ from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 
 from data_management_tools.data_readers import read_cancer_data, read_time_dependant_cancer_data, \
-    read_historical_cancer_data
+    read_historical_cancer_data, read_secret_cancer_data
 from data_management_tools.data_visualization import plot_histogram, show_images_via_slider, plot_multiple_histogram
 from diagnostic_models.max_diff_density_models import PreDefinedThresholdMaximumDiffDensity, \
     SigmoidScipyCurveFitMaximumDiffDensity, OptimalThresholdMaximumDiffDensity
 from diagnostic_models.maximum_density_models import PreDefinedThresholdMaximumDensity, \
-    SigmoidScipyCurveFitMaximumDensity
+    SigmoidScipyCurveFitMaximumDensity, OptimalThresholdMaximumDensity
 from model_evaluation.auc_curve_evaluation import AUCComparisonOfModelPerformances
 from model_evaluation.test_performances import TestPerformances
 from model_evaluation.p_value_comparison_of_model_perfoprmances import PValueComparisonOfModelPerformancesDistribution
@@ -34,7 +34,6 @@ if __name__ == '__main__':
     #                        0, data2[list(patients_with_cancer)].max(), 0)
     histo_dict = read_historical_cancer_data('./data/historical_cancer_data.txt', 0.2)
     for key in histo_dict.keys():
-        print(key)
         for histo in histo_dict[key]:
             if key == "maxTissueDensity\n":
                 label = 'Max Intensity [-]'
@@ -69,103 +68,148 @@ if __name__ == '__main__':
                             ['Without Cancer', 'With Cancer'],
                             'Max Intensity Difference [-]', 'Frequency [-]', 25,
                             add_vline=[5, "Previous work positive\ndetection threshold"], normalized=True)
+    #-------------------------------------------------------------------------------------------------------------------
 
-    # all_data = read_cancer_data('./data/cancer_data.txt')
-    # max_model = PreDefinedThresholdMaximumDensity('Predefined Threshold on Max', 6, None)
-    # max_diff_model = PreDefinedThresholdMaximumDiffDensity('Predefined Threshold on Max Diff', 5, None)
-    # max_model_scipy = SigmoidScipyCurveFitMaximumDensity('Sigmoid Curve Fit on Max',
-    #                                                      [1, np.median(all_data[0].max((-2, -1))), 1, 0],
-    #                                                      [0, 1])
-    # max_model_scipy.fit(all_data[0], all_data[1])
-    # max_diff_model_scipy = SigmoidScipyCurveFitMaximumDiffDensity('Sigmoid Curve Fit on Max Diff',
-    #                                                               [1, np.median(
-    #                                                                   all_data[0].max((-2, -1)) - all_data[0].min(
-    #                                                                       (-2, -1))), 1, 0],
-    #                                                               [0, 1])
-    # max_diff_model_scipy.fit(all_data[0], all_data[1])
-    # optimal_thresh_on_diff = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max Diff', None)
-    # optimal_thresh_on_diff.fit(all_data[0], all_data[1])
-    # optimal_thresh_on_max = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max', None)
-    # optimal_thresh_on_max.fit(all_data[0], all_data[1])
-    # torch.manual_seed(0)
-    # transforms = torchvision.transforms.Compose([torchvision.transforms.RandomRotation(degrees=(0, 180)),
-    #                                              torchvision.transforms.RandomHorizontalFlip(p=0.5),
-    #                                              torchvision.transforms.RandomVerticalFlip(p=0.5)])
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # print(device)
-    # deep_model = CNNClassifier2D((30, 30), **{"activation_func": nn.ReLU(), 'padding': '',
-    #                                           'kernel_initializer': 'glorot_normal', 'd_rate': 0.2,
-    #                                           'initial_kernel_size': (2, 2), 'final_activation_func': nn.Sigmoid(),
-    #                                           'kernel_size': (3, 3), "channels": 1,
-    #                                           "down_sampling_nb_layers": 3, "transform": transforms,
-    #                                           "device": device})
-    # deep_model.to(device)
-    #
-    #
-    # def early_stoping_condition(accuracy_history):
-    #     if len(accuracy_history) < 200:
-    #         return False
-    #     elif np.asarray(accuracy_history)[-50:].mean() < 0.7:
-    #         return False
-    #     elif np.asarray(accuracy_history)[-50:].std() < 0.015 and np.asarray(accuracy_history)[-1] > 2 * np.asarray(accuracy_history)[-50:].mean():
-    #         return True
-    #     else:
-    #         return False
-    #
-    #
-    # optimizer = torch.optim.Adam(deep_model.parameters(), lr=0.01)
-    # lambda1 = lambda epoch: 1 - 0.9 ** (epoch / 200)
-    # trainer = Trainer(deep_model, **{'loss': nn.BCELoss(), 'optimizer': optimizer,
-    #                                  'epochs': 1500, "show_plots_every_training": True,
-    #                                  "early_stoping_condition": (early_stoping_condition, 'metric', 'accuracy'),
-    #                                  "lr_scheduler": lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)})
-    # deep_model.set_trainer(trainer)
-    # deep_model.fit(all_data[0], all_data[1])
-    # evaluator = TestPerformances(
-    #     [max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
-    #      optimal_thresh_on_max, deep_model], all_data[0], all_data[1])
-    #
-    # accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Predefined Threshold on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max Diff')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('Optimal Threshold on Max')
-    # print(f'Accuracy: {accuracy}')
-    # accuracy = evaluator.evaluate_single_model('CNNClassifier2D')
-    # print(f'Accuracy: {accuracy}')
-    # p_value_evaluator = PValueComparisonOfModelPerformancesDistribution([max_model,
-    #                                                                      max_diff_model,
-    #                                                                      max_model_scipy,
-    #                                                                      max_diff_model_scipy, optimal_thresh_on_diff,
-    #                                                                      optimal_thresh_on_max, deep_model],
-    #                                                                     all_data[0], all_data[1])
-    # p_value_evaluator.evaluate_for_different_training_and_prediction_set(10)
-    # p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max')
-    # p_value_evaluator.plot_statistics_for_single_model('Predefined Threshold on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max')
-    # p_value_evaluator.plot_statistics_for_single_model('Sigmoid Curve Fit on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max Diff')
-    # p_value_evaluator.plot_statistics_for_single_model('Optimal Threshold on Max')
-    # p_value_evaluator.plot_statistics_for_single_model('CNNClassifier2D')
+    all_data = read_cancer_data('./data/cancer_data.txt')
+    max_model = PreDefinedThresholdMaximumDensity('Predefined Threshold on Max', 6, None)
+    max_diff_model = PreDefinedThresholdMaximumDiffDensity('Predefined Threshold on Max Diff', 5, None)
+    max_model_scipy = SigmoidScipyCurveFitMaximumDensity('Sigmoid Curve Fit on Max',
+                                                         [1, np.median(all_data[0].max((-2, -1))), 1, 0],
+                                                         [0, 1])
+    max_model_scipy.fit(all_data[0], all_data[1])
+    max_diff_model_scipy = SigmoidScipyCurveFitMaximumDiffDensity('Sigmoid Curve Fit on Max Diff',
+                                                                  [1, np.median(
+                                                                      all_data[0].max((-2, -1)) - all_data[0].min(
+                                                                          (-2, -1))), 1, 0],
+                                                                  [0, 1])
+    max_diff_model_scipy.fit(all_data[0], all_data[1])
+    optimal_thresh_on_diff = OptimalThresholdMaximumDiffDensity('Optimal Threshold on Max Diff', None)
+    optimal_thresh_on_diff.fit(all_data[0], all_data[1])
+    optimal_thresh_on_max = OptimalThresholdMaximumDensity('Optimal Threshold on Max', None)
+    optimal_thresh_on_max.fit(all_data[0], all_data[1])
+    torch.manual_seed(0)
+    transforms = torchvision.transforms.Compose([torchvision.transforms.RandomRotation(degrees=(0, 180)),
+                                                 torchvision.transforms.RandomHorizontalFlip(p=0.5),
+                                                 torchvision.transforms.RandomVerticalFlip(p=0.5)])
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    deep_model = CNNClassifier2D((30, 30), **{"activation_func": nn.ReLU(), 'padding': '',
+                                              'kernel_initializer': 'glorot_normal', 'd_rate': 0.2,
+                                              'initial_kernel_size': (2, 2), 'final_activation_func': nn.Sigmoid(),
+                                              'kernel_size': (3, 3), "channels": 1,
+                                              "down_sampling_nb_layers": 3, "transform": transforms,
+                                              "device": device})
+    deep_model.to(device)
 
-    # auc_comparison = AUCComparisonOfModelPerformances([max_model,
-    #                                                    max_diff_model,
-    #                                                    max_model_scipy,
-    #                                                    max_diff_model_scipy, optimal_thresh_on_diff,
-    #                                                    optimal_thresh_on_max,
-    #                                                    deep_model], all_data[0], all_data[1])
-    # auc_comparison.evaluate_for_different_training_and_prediction_set(5, 100)
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Predefined Threshold on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Sigmoid Curve Fit on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max Diff')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('Optimal Threshold on Max')
-    # auc_comparison.plot_auc_for_single_model_on_multiple_splits('CNNClassifier2D')
-    # auc_comparison.plot_auc_on_all_models_on_multiple_splits()
+
+    def early_stoping_condition(accuracy_history):
+        if len(accuracy_history) < 200:
+            return False
+        elif np.asarray(accuracy_history)[-50:].mean() < 0.7:
+            return False
+        elif accuracy_history[-1] == 1 and np.equal(np.asarray(accuracy_history[-100:]), np.ones(100)).sum() >= 5:
+            return True
+        else:
+            return False
+
+
+    optimizer = torch.optim.Adam(deep_model.parameters(), lr=0.01)
+    lambda1 = lambda epoch: 1 - 0.9 ** (epoch / 200)
+    trainer = Trainer(deep_model, **{'loss': nn.BCELoss(), 'optimizer': optimizer,
+                                     'epochs': 1500, "show_plots_every_training": True,
+                                     "early_stoping_condition": (early_stoping_condition, 'metric', 'accuracy'),
+                                     "lr_scheduler": lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1),
+                                     "save_path": './figures/trainings'})
+    deep_model.set_trainer(trainer)
+    deep_model.fit(all_data[0], all_data[1])
+    evaluator = TestPerformances(
+        [max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
+         optimal_thresh_on_max, deep_model], all_data[0], all_data[1])
+
+    metrics = evaluator.evaluate_single_model('Predefined Threshold on Max')
+    print(f'Model: Predefined Threshold on Max\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('Predefined Threshold on Max Diff')
+    print(f'Model: Predefined Threshold on Max Diff\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max')
+    print(f'Model: Sigmoid Curve Fit on Max\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('Sigmoid Curve Fit on Max Diff')
+    print(f'Model: Sigmoid Curve Fit on Max Diff\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('Optimal Threshold on Max Diff')
+    print(f'Model: Optimal Threshold on Max Diff\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('Optimal Threshold on Max')
+    print(f'Model: Optimal Threshold on Max\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    metrics = evaluator.evaluate_single_model('CNNClassifier2D')
+    print(f'Model: CNNClassifier2D\nAccuracy: {metrics[0]}\n'
+          f'True Positive Rate: {metrics[1]}\nTrue Negative Rate: {metrics[2]}\n'
+          f'False Positive Rate: {metrics[3]}\nFalse Negative Rate: {metrics[4]}')
+    #------------------------------------------------------------------------------
+
+    #Test on historical and secret data
+    for model in [max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
+         optimal_thresh_on_max]:
+        for key in histo_dict.keys():
+            for histo in histo_dict[key]:
+                if key == "maxTissueDensity\n":
+                    if hasattr(model, 'predict_on_max'):
+                        pred = model.predict_on_max(histo[:, 0])
+                        cancer_rate = (pred*histo[:, 1]).sum()/histo[:, 1].sum()
+                    else:
+                        continue
+                elif key == "maxDensityDifference\n":
+                    if hasattr(model, 'predict_on_diff'):
+                        pred = model.predict_on_diff(histo[:, 0])
+                        cancer_rate = (pred*histo[:, 1]).sum()/histo[:, 1].sum()
+                    else:
+                        continue
+                else:
+                    continue
+                if histo[:, 1].sum() == 2000:
+                    title = "2000-patient cohort"
+                elif histo[:, 1].sum() == 10000:
+                    title = "10000-patient cohort"
+                else:
+                    title = ""
+                print(f'\nModel: {model.name}\nCohort: {title}+{key}Cancer rate: {cancer_rate}\n')
+
+    #test on secret data
+
+    secret_data = read_secret_cancer_data('./data/Samuel.txt')
+    for model in [max_model, max_diff_model, max_model_scipy, max_diff_model_scipy, optimal_thresh_on_diff,
+                  optimal_thresh_on_max, deep_model]:
+        predictions = model.predict(secret_data)
+        print(f'\nModel: {model.name}\nSecret_data prediction: {predictions}\n')
+
+
+
+    #---------------------------------------------------------------------------------
+    p_value_evaluator = PValueComparisonOfModelPerformancesDistribution([max_model,
+                                                                         max_diff_model,
+                                                                         max_model_scipy,
+                                                                         max_diff_model_scipy, optimal_thresh_on_diff,
+                                                                         optimal_thresh_on_max, deep_model],
+                                                                        all_data[0], all_data[1])
+    p_value_evaluator.evaluate_for_different_training_and_prediction_set(10)
+    p_value_evaluator.plot_statistics_between_all_models(10)
+    p_value_evaluator.compute_all_t_tests_and_produce_latex_table()
+
+
+    auc_comparison = AUCComparisonOfModelPerformances([max_model,
+                                                       max_diff_model,
+                                                       max_model_scipy,
+                                                       max_diff_model_scipy, optimal_thresh_on_diff,
+                                                       optimal_thresh_on_max,
+                                                       deep_model], all_data[0], all_data[1])
+    auc_comparison.evaluate_for_different_training_and_prediction_set(5, 100)
+    auc_comparison.plot_auc_for_single_model_on_multiple_splits('CNNClassifier2D')
+    auc_comparison.plot_auc_on_all_models_on_multiple_splits()

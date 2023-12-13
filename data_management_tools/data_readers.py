@@ -27,6 +27,26 @@ def read_cancer_data(path_to_data: str) -> Tuple[np.ndarray, np.ndarray]:
 
     return np.asarray(data, dtype=np.float32), np.asarray(labels, dtype=np.int32)
 
+
+def read_secret_cancer_data(path_to_data: str) -> np.ndarray:
+    """
+    Reads the cancer data from the path specified by path_to_data.
+    :param path_to_data: Path to the data
+    :return: The data as a numpy array
+    """
+    open_file = open(path_to_data, 'r')
+    lines = open_file.readlines()
+    data = []
+    for line in lines:
+        if "Patient_" in line:
+            data.append([])
+        else:
+            if data != [] and ',' in line:
+                data[-1].append(line[:-2].split(','))
+
+    return np.asarray(data, dtype=np.float32)
+
+
 def read_time_dependant_cancer_data(path_to_data: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Reads the cancer data from the path specified by path_to_data.
@@ -56,6 +76,7 @@ def read_time_dependant_cancer_data(path_to_data: str) -> Tuple[np.ndarray, np.n
                 data[-1][-1].append(line[:-2].split(','))
 
     return np.asarray(data, dtype=np.float32), np.asarray(labels, dtype=np.int32)
+
 
 def read_historical_cancer_data(path_to_data: str, bin_width: float) -> Dict[str, np.ndarray]:
     """

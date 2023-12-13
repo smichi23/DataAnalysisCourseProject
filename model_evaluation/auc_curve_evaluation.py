@@ -103,7 +103,7 @@ class AUCComparisonOfModelPerformances:
             else:
                 x_values = np.linspace(0, 0.999, 100)
                 mean_minus_std_roc, mean_roc, mean_plus_std_roc = self.get_intrapolated_auc_with_confidence_intervals(model.name, x_values, nb_sigmas)
-                plt.plot(x_values, mean_roc, label=model.name)
+                plt.plot(np.insert(x_values, 0, 0), np.insert(mean_roc, 0, 0), label=model.name)
                 plt.fill_between(x_values, mean_minus_std_roc, mean_plus_std_roc, alpha=0.2, label=f"{nb_sigmas} sigma for {model.name}")
         plt.title(f"ROC curves")
         ax = plt.gca()
